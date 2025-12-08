@@ -10,13 +10,13 @@ interface BodyGraphProps {
 // Label positions based on where the lines point in the diagram (front and back)
 // Adjusted to match the actual label line endpoints on the body diagram
 const LABEL_POSITIONS: Record<BodyPartName, { x: number; y: number }> = {
-  Shoulders: { x: 10, y: 15 },    // Top left, pointing to shoulders
-  Chest: { x: 42, y: 20 },        // Top center, pointing to chest
-  Back: { x: 72, y: 18 },         // Top right back, pointing to back
-  Biceps: { x: 5, y: 32 },        // Left side, pointing to biceps
-  Core: { x: 50, y: 42 },         // Center, pointing to abs/core
-  Triceps: { x: 82, y: 36 },      // Right side back, pointing to triceps
-  Legs: { x: 72, y: 68 }          // Lower right, pointing to legs
+  Shoulders: { x: 11, y: 14 },    // Top left corner
+  Chest: { x: 45, y: 14 },        // Top center area
+  Back: { x: 83, y: 11 },         // Top right corner (back view)
+  Biceps: { x: 9, y: 33 },        // Left side middle
+  Core: { x: 49, y: 31 },         // Center body area
+  Triceps: { x: 91, y: 21 },      // Right side (back view)
+  Legs: { x: 87, y: 59 }          // Lower right area
 }
 
 const BODY_PARTS: BodyPartName[] = ['Chest', 'Back', 'Legs', 'Shoulders', 'Biceps', 'Triceps', 'Core']
