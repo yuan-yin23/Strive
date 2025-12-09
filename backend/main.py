@@ -36,10 +36,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 client = AsyncMongoClient(MONGO_URL)
+
 db = client[DATABASE_NAME]
 stats_collection = db.get_collection("stats")
 users_collection = db.get_collection("users")
-workouts_collection = db.get_collection("workouts")  # New collection for workouts
+workouts_collection = db.get_collection("workouts")
 
 def serialize_doc(doc: dict):
     if "_id" in doc:
@@ -99,6 +100,34 @@ class LoginRequest(BaseModel):
 
 class UserCollection(BaseModel):
     users: List[User]
+
+@app.get("/workouts/{user_id}")
+async def get_user_workouts(user_id: str):
+    """Retrieve all workouts for a specific user by user ID."""
+
+    try:
+        obj_id = ObjectId(user_id)
+    except:
+        raise HTTPException(status_code=400, detail="Invalid user ID")
+
+    # Ensure the user exists
+    user = await users_collection.find_one({"_id": obj_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Fetch all workout sessions linked to this user
+    workouts_cursor = workouts_collection.find({"userId": user_id}).sort("timestamp", -1)
+
+    workouts = []
+    async for w in workouts_cursor:
+        workouts.append(serialize_doc(w))
+
+    return {
+        "userId": user_id,
+        "count": len(workouts),
+        "workouts": workouts
+    }
+    
 
 @app.post("/login")
 async def login(request: LoginRequest):
