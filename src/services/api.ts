@@ -1,5 +1,11 @@
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
+export async function getLeaderboard() {
+  const res = await fetch(`${API_BASE}/leaderboard`)
+  if (!res.ok) throw new Error("Failed to load leaderboard")
+  return res.json()
+}
+
 export async function getHealth(): Promise<{status:string}> {
   const res = await fetch(`${API_BASE}/health`)
   if (!res.ok) throw new Error('API error')

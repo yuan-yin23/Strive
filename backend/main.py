@@ -101,6 +101,62 @@ class LoginRequest(BaseModel):
 class UserCollection(BaseModel):
     users: List[User]
 
+@app.get("/leaderboard")
+async def leaderboard():
+    users = await users_collection.find().to_list(None)
+
+    # Convert ObjectId
+    for u in users:
+        u["_id"] = str(u["_id"])
+
+    # Overview leaderboard example
+    overview = [
+        {
+            "title": "Total Weight Lifted",
+            "data": sorted(
+                [
+                    {
+                        "name": u["name"],
+                        "rank": 0,   # filled after sorting
+                        "value": u.get("totalWeight", 0)
+                    }
+                    for u in users
+                ],
+                key=lambda x: x["value"],
+                reverse=True
+            )
+        }
+    ]
+
+    # Assign rank numbers
+    for section in overview:
+        for i, entry in enumerate(section["data"]):
+            entry["rank"] = i + 1
+
+    # Max lift board
+    max_board = [
+        {
+            "title": "Bench Press (Max)",
+            "data": sorted(
+                [
+                    {"name": u["name"], "rank": 0, "value": u.get("maxBench", 0)}
+                    for u in users
+                ],
+                key=lambda x: x["value"],
+                reverse=True
+            )
+        }
+    ]
+
+    for section in max_board:
+        for i, entry in enumerate(section["data"]):
+            entry["rank"] = i + 1
+
+    return {
+        "overview": overview,
+        "max": max_board,
+    }
+
 @app.get("/workouts/{user_id}")
 async def get_user_workouts(user_id: str):
     """Retrieve all workouts for a specific user by user ID."""
@@ -155,24 +211,60 @@ async def register(user: RegisterUser):
 
 @app.post("/stats")
 async def submit_stats(data: StatsSubmission):
-    """Submit a workout session linked to a user"""
-    submission = data.model_dump()
-    submission["created_at"] = datetime.now()
+    """Submit a workout session and update user stats."""
     
-    # Verify user exists
+    # Convert userId into ObjectId
     try:
-        user_id = ObjectId(data.userId)
+        user_obj_id = ObjectId(data.userId)
     except:
         raise HTTPException(status_code=400, detail="Invalid user ID")
-    
-    user = await users_collection.find_one({"_id": user_id})
+
+    # Fetch user
+    user = await users_collection.find_one({"_id": user_obj_id})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    
-    # Save to workouts collection
+
+    # --- 1. SAVE WORKOUT SESSION ---
+    submission = data.model_dump()
+    submission["created_at"] = datetime.now()
     await workouts_collection.insert_one(submission)
-    
-    return {"message": "Workout saved successfully!"}
+
+    # --- 2. CALCULATE TOTAL WEIGHT AND MAXES FROM THIS WORKOUT ---
+    total_weight = 0
+    new_max_bench = user.get("maxBench", 0)
+    new_max_squat = user.get("maxSquat", 0)
+    new_max_deadlift = user.get("maxDeadlift", 0)
+
+    for ex in data.exercises:
+        lifted = ex.weight * ex.reps * ex.sets
+        total_weight += lifted
+
+        # Update max lifts
+        if ex.exercise.lower() == "bench press" and ex.weight > new_max_bench:
+            new_max_bench = ex.weight
+
+        if ex.exercise.lower() == "squat" and ex.weight > new_max_squat:
+            new_max_squat = ex.weight
+
+        if ex.exercise.lower() == "deadlift" and ex.weight > new_max_deadlift:
+            new_max_deadlift = ex.weight
+
+    # --- 3. UPDATE USER STATS IN DB ---
+    await users_collection.update_one(
+        {"_id": user_obj_id},
+        {
+            "$set": {
+                "maxBench": new_max_bench,
+                "maxSquat": new_max_squat,
+                "maxDeadlift": new_max_deadlift
+            },
+            "$inc": {
+                "totalWeight": total_weight  # Create this field if it doesn't exist
+            }
+        }
+    )
+
+    return {"message": "Workout saved and stats updated!"}
 
 @app.get("/workouts/{user_id}")
 async def get_user_workouts(user_id: str):
