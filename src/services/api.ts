@@ -12,6 +12,26 @@ export async function submitStats(payload: any){
   return res.json()
 }
 
+export async function registerUser(payload: any) {
+  const res = await fetch(`${API_BASE}/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  if (!res.ok) throw new Error('register error')
+  return res.json()
+}
+
+export async function loginUser(payload: any) {
+  const res = await fetch(`${API_BASE}/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  if (!res.ok) throw new Error('login error')
+  return res.json()
+}
+
 // Calculate accumulated stats from sessions stored in localStorage
 export function getAccumulatedStats() {
   const sessions = JSON.parse(localStorage.getItem('workoutSessions') || '[]')

@@ -39,6 +39,10 @@ db = client[DATABASE_NAME]
 stats_collection = db.get_collection("stats")
 users_collection = db.get_collection("users")
 
+def serialize_doc(doc: dict):
+    if "_id" in doc:
+        doc["_id"] = str(doc["_id"])
+    return doc
 
 # Enable CORS for frontend communication
 origins = [
@@ -46,6 +50,7 @@ origins = [
     "http://localhost:3000",
     "http://127.0.0.1:5173",
     "http://127.0.0.1:3000",
+    "http://localhost:5174",
 ]
 
 app.add_middleware(
@@ -79,7 +84,6 @@ class User(BaseModel):
     maxBench: int = 0
     maxSquat: int = 0
     maxDeadlift: int = 0
-    created_at: datetime
 
 class RegisterUser(BaseModel):
     email: EmailStr = Field(...)
@@ -112,18 +116,10 @@ async def login(request: LoginRequest):
 
 @app.post("/register")
 async def register(user: RegisterUser):
-    new_user = {
-        "name": user.name,
-        "email": user.email,
-        "username": user.username,
-        "maxBench": 0,
-        "maxSquat": 0,
-        "maxDeadlift": 0,
-        "created_at": datetime.now()
-    }
-    result = await db["users"].insert_one(new_user)
-
-    return {"id": str(result.inserted_id), "message": "Registered!"}
+    new_user = user.model_dump(by_alias=True, exclude=["id"])
+    result = await users_collection.insert_one(new_user)
+    new_user["_id"] = result.inserted_id
+    return serialize_doc(new_user)
 
 @app.post("/stats")
 async def submit_stats(data: StatsSubmission):

@@ -6,6 +6,8 @@ import Personal from './pages/Personal'
 import Leaderboards from './pages/Leaderboards'
 import SubmitStats from './pages/SubmitStats'
 import NotFound from './pages/NotFound'
+import Register from './pages/Register'
+import Login from './pages/Login'
 
 function App() {
   return (
@@ -17,6 +19,8 @@ function App() {
           <Route path="/me" element={<Personal />} />
           <Route path="/leaderboards" element={<Leaderboards />} />
           <Route path="/submit" element={<SubmitStats />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/login" element={<Login />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
