@@ -1,118 +1,33 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { getLeaderboard } from '../services/api'
 
 export default function Leaderboards() {
-  const [tab, setTab] = useState<'overview' | 'max' | 'levels'>('overview')
+  const [tab, setTab] = useState<'overview' | 'max'>('overview')
+  const [data, setData] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
 
-  //NOTE TO NEXT PERSON
-  //WE CAN REPLACE NAMES WITH IDS FROM MONGO
-  //WE CAN ALSO FETCH ALL THE DATA FROM THE EXERCISE ARRAY IN MONGO
-  //WE CAN ALSO ASSIGN A VALUE TO LEVELS TO GET DATA HERE
-  const overview = [
-    {
-      title: 'Time in Gym',
-      data: [
-        { rank: 1, name: 'Alice', value: '150 hrs' },
-        { rank: 2, name: 'Bob', value: '95 hrs' },
-        { rank: 3, name: 'Charlie', value: '80 hrs' },
-      ]
-    },
-    {
-      title: 'Total Weight Lifted',
-      data: [
-        { rank: 1, name: 'Bob', value: '76,495 lbs' },
-        { rank: 2, name: 'Charlie', value: '39,545 lbs' },
-        { rank: 3, name: 'Alice', value: '28,480 lbs' },
-      ]
+  useEffect(() => {
+    async function load() {
+      try {
+        const result = await getLeaderboard()
+        setData(result)
+      } catch (err) {
+        console.error("Failed to load leaderboard", err)
+      } finally {
+        setLoading(false)
+      }
     }
-  ]
+    load()
+  }, [])
 
-  const maxLifts = [
-    {
-      title: 'Bench Press (Max)',
-      data: [
-        { rank: 1, name: 'Bob', value: '250' },
-        { rank: 2, name: 'Alice', value: '165' },
-        { rank: 3, name: 'Charlie', value: '145' },
-      ]
-    },
-    {
-      title: 'Squat (Max)',
-      data: [
-        { rank: 1, name: 'Charlie', value: '315' },
-        { rank: 2, name: 'Bob', value: '275' },
-        { rank: 3, name: 'Alice', value: '225' },
-      ]
-    },
-    {
-      title: 'Deadlift (Max)',
-      data: [
-        { rank: 1, name: 'Charlie', value: '405' },
-        { rank: 2, name: 'Bob', value: '375' },
-        { rank: 3, name: 'Alice', value: '275' },
-      ]
-    }
-  ]
+  const active = data
+    ? tab === 'overview'
+      ? data.overview
+      : data.max
+    : []
 
-  const levels = [
-    {
-      title: 'Chest',
-      data: [
-        { rank: 1, name: 'Alice', value: 'Platinum' },
-        { rank: 2, name: 'Bob', value: 'Gold' },
-        { rank: 3, name: 'Charlie', value: 'Silver' },
-      ]
-    },
-    {
-      title: 'Back',
-      data: [
-        { rank: 1, name: 'Bob', value: 'Diamond' },
-        { rank: 2, name: 'Alice', value: 'Gold' },
-        { rank: 3, name: 'Charlie', value: 'Silver' },
-      ]
-    },
-    {
-      title: 'Shoulders',
-      data: [
-        { rank: 1, name: 'Alice', value: 'Gold' },
-        { rank: 2, name: 'Bob', value: 'Silver' },
-        { rank: 3, name: 'Charlie', value: 'Bronze' },
-      ]
-    },
-    {
-      title: 'Legs',
-      data: [
-        { rank: 1, name: 'Alice', value: 'Platinum' },
-        { rank: 2, name: 'Bob', value: 'Gold' },
-        { rank: 3, name: 'Charlie', value: 'Silver' },
-      ]
-    },
-    {
-      title: 'Biceps',
-      data: [
-        { rank: 1, name: 'Charlie', value: 'Platinum' },
-        { rank: 2, name: 'Bob', value: 'Gold' },
-        { rank: 3, name: 'Alice', value: 'Silver' },
-      ]
-    },
-    {
-      title: 'Tricep',
-      data: [
-      { rank: 1, name: 'Bob', value: 'Diamond' },
-        { rank: 2, name: 'Alice', value: 'Silver' },
-        { rank: 3, name: 'Charlie', value: 'Bronze' },
-      ]
-    },
-    {
-      title: 'Core',
-      data: [
-        { rank: 1, name: 'Alice', value: 'Platinum' },
-        { rank: 2, name: 'Bob', value: 'Gold' },
-        { rank: 3, name: 'Charlie', value: 'Silver' },
-      ]
-    },
-  ]
-
-  const active = tab === 'overview' ? overview : tab === 'max' ? maxLifts : levels
+  if (loading) return <section><h1>Leaderboards</h1><p>Loading...</p></section>
+  if (!data) return <section><h1>Leaderboards</h1><p>Failed to load leaderboard.</p></section>
 
   return (
     <section>
@@ -152,29 +67,14 @@ export default function Leaderboards() {
         >
           Max Lifts
         </button>
-        <button
-          type="button"
-          onClick={() => setTab('levels')}
-          style={{
-            padding: '0.6rem 1rem',
-            borderRadius: 6,
-            border: tab === 'levels' ? '2px solid var(--accent-red)' : '1px solid var(--border-color)',
-            background: tab === 'levels' ? 'var(--accent-red)' : 'var(--secondary-bg)',
-            color: tab === 'levels' ? '#fff' : 'var(--text-secondary)',
-            fontWeight: 700,
-            cursor: 'pointer'
-          }}
-        >
-          Levels
-        </button>
       </div>
 
       <div className="grid">
-        {active.map((lb) => (
+        {active.map((lb: any) => (
           <div key={lb.title} className="card">
             <h2 style={{ fontSize: '1.3rem', marginBottom: '1.5rem' }}>{lb.title}</h2>
             <ol style={{ listStyle: 'none', marginLeft: 0, padding: 0 }}>
-              {lb.data.map((entry) => (
+              {lb.data.map((entry: any) => (
                 <li
                   key={`${lb.title}-${entry.rank}-${entry.name}`}
                   style={{
