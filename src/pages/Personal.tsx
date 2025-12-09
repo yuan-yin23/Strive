@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import BodyGraph from '../components/BodyGraph'
 import { getUserWorkouts } from '../services/api'
 
@@ -25,7 +25,7 @@ export default function Personal() {
 
   useEffect(() => {
     // Load workout history when History tab is selected
-    if (tab === 'history') {
+    if (tab === 'history'|| tab === 'stats') {
       loadWorkoutHistory()
     }
   }, [tab])
@@ -64,6 +64,116 @@ export default function Personal() {
     }
   }
 
+  const stats = useMemo(() => {
+    if (workoutHistory.length === 0) {
+      return {
+        totalTimeMinutes: 0,
+        totalTimeHours: 0,
+        totalTimeDisplay: '0 hrs',
+        totalWeight: 0,
+        maxBench: 0,
+        maxSquat: 0,
+        maxDeadlift: 0,
+        thisMonthWorkouts: 0,
+        thisMonthTime: 0,
+        thisMonthTimeDisplay: '0 hrs',
+        thisMonthWeight: 0
+      }
+    }
+
+    // Total Time in Gym (sum of all sessionTime in minutes)
+    const totalTimeMinutes = workoutHistory.reduce((sum, workout) => {
+      return sum + (workout.sessionTime || 0)
+    }, 0)
+
+    // Total Weight Lifted (sum of all totalWeight from each session)
+    const totalWeight = workoutHistory.reduce((sum, workout) => {
+      return sum + (workout.totalWeight || 0)
+    }, 0)
+
+    // Format time display: show hours and minutes if there are minutes, otherwise just hours
+    const hours = Math.floor(totalTimeMinutes / 60)
+    const minutes = totalTimeMinutes % 60
+    let totalTimeDisplay = ''
+    if (hours > 0 && minutes > 0) {
+      totalTimeDisplay = `${hours} hrs ${minutes} min`
+    } else if (hours > 0) {
+      totalTimeDisplay = `${hours} hrs`
+    } else if (minutes > 0) {
+      totalTimeDisplay = `${minutes} min`
+    } else {
+      totalTimeDisplay = '0 hrs'
+    }
+
+    // Calculate max lifts (find maximum weight for each exercise type)
+    let maxBench = 0
+    let maxSquat = 0
+    let maxDeadlift = 0
+
+    workoutHistory.forEach(workout => {
+      workout.exercises?.forEach(ex => {
+        const exerciseName = ex.exercise.toLowerCase()
+        const weight = ex.weight || 0
+        
+        if (exerciseName.includes('bench press') && weight > maxBench) {
+          maxBench = weight
+        }
+        if (exerciseName.includes('squat') && weight > maxSquat) {
+          maxSquat = weight
+        }
+        if (exerciseName.includes('deadlift') && weight > maxDeadlift) {
+          maxDeadlift = weight
+        }
+      })
+    })
+
+    // Calculate "This Month" stats
+    const now = new Date()
+    const currentMonth = now.getMonth()
+    const currentYear = now.getFullYear()
+
+    const thisMonthWorkouts = workoutHistory.filter(workout => {
+      const workoutDate = new Date(workout.timestamp)
+      return workoutDate.getMonth() === currentMonth && workoutDate.getFullYear() === currentYear
+    })
+
+    const thisMonthTime = thisMonthWorkouts.reduce((sum, workout) => {
+      return sum + (workout.sessionTime || 0)
+    }, 0)
+
+    const thisMonthWeight = thisMonthWorkouts.reduce((sum, workout) => {
+      return sum + (workout.totalWeight || 0)
+    }, 0)
+
+    // Format this month time display
+    const thisMonthHours = Math.floor(thisMonthTime / 60)
+    const thisMonthMinutes = thisMonthTime % 60
+    let thisMonthTimeDisplay = ''
+    if (thisMonthHours > 0 && thisMonthMinutes > 0) {
+      thisMonthTimeDisplay = `${thisMonthHours} hrs ${thisMonthMinutes} min`
+    } else if (thisMonthHours > 0) {
+      thisMonthTimeDisplay = `${thisMonthHours} hrs`
+    } else if (thisMonthMinutes > 0) {
+      thisMonthTimeDisplay = `${thisMonthMinutes} min`
+    } else {
+      thisMonthTimeDisplay = '0 hrs'
+    }
+
+    return {
+      totalTimeMinutes,
+      totalTimeHours: hours,
+      totalTimeDisplay,
+      totalWeight,
+      maxBench,
+      maxSquat,
+      maxDeadlift,
+      thisMonthWorkouts: thisMonthWorkouts.length,
+      thisMonthTime,
+      thisMonthTimeDisplay,
+      thisMonthWeight
+    }
+  }, [workoutHistory])
+  
   return (
     <section>
       <h1>My Stats</h1>
@@ -135,20 +245,26 @@ export default function Personal() {
         <div className="grid-2">
           <div className="card">
             <h2>Totals</h2>
-            <ul style={{ listStyle: 'none', marginLeft: 0, padding: 0 }}>
-              <li style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', padding: '0.8rem 0', borderBottom: '1px solid var(--border-color)' }}>
-                <span>Total Time in Gym</span>
-                <strong style={{ color: 'var(--accent-red)' }}>123 hrs</strong>
-              </li>
-              <li style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', padding: '0.8rem 0', borderBottom: '1px solid var(--border-color)' }}>
-                <span>Total Weight Lifted</span>
-                <strong style={{ color: 'var(--accent-red)' }}>45,000 lbs</strong>
-              </li>
-              <li style={{ display: 'flex', justifyContent: 'space-between', padding: '0.8rem 0' }}>
-                <span>Personal Best (Bench)</span>
-                <strong style={{ color: 'var(--accent-red)' }}>150 lbs</strong>
-              </li>
-            </ul>
+            {loading ? (
+              <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>
+                Loading statistics...
+              </p>
+            ) : (
+              <ul style={{ listStyle: 'none', marginLeft: 0, padding: 0 }}>
+                <li style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', padding: '0.8rem 0', borderBottom: '1px solid var(--border-color)' }}>
+                  <span>Total Time in Gym</span>
+                  <strong style={{ color: 'var(--accent-red)' }}>{stats.totalTimeDisplay}</strong>
+                </li>
+                <li style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', padding: '0.8rem 0', borderBottom: '1px solid var(--border-color)' }}>
+                  <span>Total Weight Lifted</span>
+                  <strong style={{ color: 'var(--accent-red)' }}>{stats.totalWeight.toLocaleString()} lbs</strong>
+                </li>
+                <li style={{ display: 'flex', justifyContent: 'space-between', padding: '0.8rem 0' }}>
+                  <span>Total Workouts</span>
+                  <strong style={{ color: 'var(--accent-red)' }}>{workoutHistory.length}</strong>
+                </li>
+              </ul>
+            )}
           </div>
 
           <div className="card">
@@ -156,15 +272,21 @@ export default function Personal() {
             <ul style={{ listStyle: 'none', marginLeft: 0, padding: 0 }}>
               <li style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', padding: '0.8rem 0', borderBottom: '1px solid var(--border-color)' }}>
                 <span>Bench Press</span>
-                <strong style={{ color: 'var(--accent-red)' }}>150 lbs</strong>
+                <strong style={{ color: 'var(--accent-red)' }}>
+                  {stats.maxBench > 0 ? `${stats.maxBench} lbs` : 'N/A'}
+                </strong>
               </li>
               <li style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', padding: '0.8rem 0', borderBottom: '1px solid var(--border-color)' }}>
                 <span>Squat</span>
-                <strong style={{ color: 'var(--accent-red)' }}>200 lbs</strong>
+                <strong style={{ color: 'var(--accent-red)' }}>
+                  {stats.maxSquat > 0 ? `${stats.maxSquat} lbs` : 'N/A'}
+                </strong>
               </li>
               <li style={{ display: 'flex', justifyContent: 'space-between', padding: '0.8rem 0' }}>
                 <span>Deadlift</span>
-                <strong style={{ color: 'var(--accent-red)' }}>250 lbs</strong>
+                <strong style={{ color: 'var(--accent-red)' }}>
+                  {stats.maxDeadlift > 0 ? `${stats.maxDeadlift} lbs` : 'N/A'}
+                </strong>
               </li>
             </ul>
           </div>
@@ -174,15 +296,15 @@ export default function Personal() {
             <ul style={{ listStyle: 'none', marginLeft: 0, padding: 0 }}>
               <li style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', padding: '0.8rem 0', borderBottom: '1px solid var(--border-color)' }}>
                 <span>Workouts Completed</span>
-                <strong style={{ color: 'var(--accent-red)' }}>12</strong>
+                <strong style={{ color: 'var(--accent-red)' }}>{stats.thisMonthWorkouts}</strong>
               </li>
               <li style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', padding: '0.8rem 0', borderBottom: '1px solid var(--border-color)' }}>
                 <span>Hours Trained</span>
-                <strong style={{ color: 'var(--accent-red)' }}>18 hrs</strong>
+                <strong style={{ color: 'var(--accent-red)' }}>{stats.thisMonthTimeDisplay}</strong>
               </li>
               <li style={{ display: 'flex', justifyContent: 'space-between', padding: '0.8rem 0' }}>
                 <span>Weight Lifted</span>
-                <strong style={{ color: 'var(--accent-red)' }}>5,200 lbs</strong>
+                <strong style={{ color: 'var(--accent-red)' }}>{stats.thisMonthWeight.toLocaleString()} lbs</strong>
               </li>
             </ul>
           </div>
