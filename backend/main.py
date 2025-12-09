@@ -3,14 +3,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from database import connect_to_mongo, close_mongo_connection
 from config import settings
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from typing import List
 from datetime import datetime
 from pymongo import AsyncMongoClient
 from dotenv import load_dotenv
 import os
+from pydantic.functional_validators import BeforeValidator
 
+from typing_extensions import Annotated
 
+PyObjectId = Annotated[str, BeforeValidator(str)]
 
 # Lifespan context manager for startup/shutdown events (async)
 @asynccontextmanager
@@ -34,6 +37,7 @@ app = FastAPI(
 client = AsyncMongoClient(MONGO_URL)
 db = client[DATABASE_NAME]
 stats_collection = db.get_collection("stats")
+users_collection = db.get_collection("users")
 
 
 # Enable CORS for frontend communication
@@ -66,6 +70,60 @@ class StatsSubmission(BaseModel):
     totalWeight: float
     timestamp: datetime
 
+class User(BaseModel):
+    id: PyObjectId | None = Field(alias="_id", default=None)
+    email: EmailStr = Field(...)
+    username: str = Field(...)
+    name: str = Field(...)
+    workouts: List[Exercise] = Field(default_factory=list)
+    maxBench: int = 0
+    maxSquat: int = 0
+    maxDeadlift: int = 0
+    created_at: datetime
+
+class RegisterUser(BaseModel):
+    email: EmailStr = Field(...)
+    username: str = Field(...)
+    name: str = Field(...)
+
+class LoginRequest(BaseModel):
+    name: str
+    email: EmailStr
+
+class UserCollection(BaseModel):
+    users: List[User]
+
+@app.post("/login")
+async def login(request: LoginRequest):
+    user = await users_collection.find_one({
+        "email": request.email,
+        "name": request.name
+    })
+
+    if not user:
+        return {"error": "User not found. Check your name and email."}
+
+    user["_id"] = str(user["_id"])
+
+    return {
+        "message": "Login successful!",
+        "user": user
+    }
+
+@app.post("/register")
+async def register(user: RegisterUser):
+    new_user = {
+        "name": user.name,
+        "email": user.email,
+        "username": user.username,
+        "maxBench": 0,
+        "maxSquat": 0,
+        "maxDeadlift": 0,
+        "created_at": datetime.now()
+    }
+    result = await db["users"].insert_one(new_user)
+
+    return {"id": str(result.inserted_id), "message": "Registered!"}
 
 @app.post("/stats")
 async def submit_stats(data: StatsSubmission):
